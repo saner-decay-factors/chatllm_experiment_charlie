@@ -8,9 +8,25 @@ from sqlalchemy.orm import Session
 
 from backend.config import OPENROUTER_MODEL_DEFAULT
 from backend.database import get_db
-from backend.models import ChatMessage
+from backend.models import ChatMessage, ChatSession
 from backend.schemas.chat import ChatRequest, ChatResponse
-from backend.services.openrouter import OpenRouterConfigError, generate_reply, stream_reply
+from backend.services.openrouter import OpenRouterConfigError, generate_reply, generate_title, stream_reply
+
+
+async def _auto_title(db: Session, session_key: str, user_msg: str, assistant_reply: str) -> None:
+    """Generate a contextual title using the LLM based on the first exchange."""
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.session_key == session_key)
+        .first()
+    )
+    if session and not session.title_generated:
+        try:
+            title = await generate_title(user_message=user_msg, assistant_reply=assistant_reply)
+            session.title = title
+        except Exception:
+            session.title = user_msg.strip()[:50] + ("..." if len(user_msg.strip()) > 50 else "")
+        session.title_generated = True
 
 
 router = APIRouter()
@@ -36,9 +52,25 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
 
     resolved_model = payload.model or model_name or OPENROUTER_MODEL_DEFAULT
 
-    # Persistimos apenas o fluxo basico de mensagens; sessoes e titulos sao tarefa do participante.
-    db.add(ChatMessage(session_key="default", role="user", content=payload.message, model=resolved_model))
-    db.add(ChatMessage(session_key="default", role="assistant", content=reply, model=resolved_model))
+    session_key = payload.session_key
+    db.add(
+        ChatMessage(
+            session_key=session_key,
+            role="user",
+            content=payload.message,
+            model=resolved_model,
+        )
+    )
+    db.add(
+        ChatMessage(
+            session_key=session_key,
+            role="assistant",
+            content=reply,
+            model=resolved_model,
+        )
+    )
+    _touch_session(db, session_key)
+    await _auto_title(db, session_key, payload.message, reply)
     db.commit()
 
     return ChatResponse(reply=reply, model=resolved_model)
@@ -47,6 +79,7 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
 @router.post("/api/chat/stream")
 async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> StreamingResponse:
     resolved_model = payload.model or OPENROUTER_MODEL_DEFAULT
+    session_key = payload.session_key
 
     async def event_generator():
         full_reply = ""
@@ -68,7 +101,7 @@ async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> St
         if full_reply.strip():
             db.add(
                 ChatMessage(
-                    session_key="default",
+                    session_key=session_key,
                     role="user",
                     content=payload.message,
                     model=resolved_model,
@@ -76,12 +109,14 @@ async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> St
             )
             db.add(
                 ChatMessage(
-                    session_key="default",
+                    session_key=session_key,
                     role="assistant",
                     content=full_reply,
                     model=resolved_model,
                 )
             )
+            _touch_session(db, session_key)
+            await _auto_title(db, session_key, payload.message, full_reply)
             db.commit()
 
         yield f"data: {json.dumps({'done': True}, ensure_ascii=True)}\n\n"
@@ -91,3 +126,16 @@ async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> St
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
+
+
+def _touch_session(db: Session, session_key: str) -> None:
+    """Update the session's updated_at timestamp."""
+    from datetime import datetime, timezone
+
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.session_key == session_key)
+        .first()
+    )
+    if session:
+        session.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)

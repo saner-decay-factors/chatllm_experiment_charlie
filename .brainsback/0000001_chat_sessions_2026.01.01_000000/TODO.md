@@ -5,17 +5,24 @@
 **Hard rule**: AI agents must not edit this file and must not draft paste-ready content for it.
 
 ## The Problem
-_State clearly what you are trying to achieve and the architectural constraints, avoiding implementation specifics of HOW to do it. Focus on WHAT and WHY._
+Atualmente a tela do agente é estatica e contém somento um chat, porém o usuario deve poder criar mais de uma seção, com cada seção tendo seu próprio historico e deve haver a criação do título assim que o usuário enviar a primeira mensagem ao agente baseado no contexto da mensagem (essa é uma feaure parecida com a que existe no ChatGPT e Gemini). A barra se seção deve ficar no lado esquerdo da tela, sendo visívivel ao usuário e podendo ser escondida a partir de um botão.
 
 ## Steps
-- [ ] _Decompose the problem into actionable logical steps._
-- [ ] _Each step should represent a verifiable piece of work._
+- [ ] Ler os arquivos do projeto.
+- [ ] Identificar onde deve ser criada a barra.
+- [ ] Criação a barra de seções com React.
+- [ ] Posicionar a barra de seções a esquerda.
+- [ ] A cada seção criada que o usuário envia uma mensagem, adicionar essa seção na barra de seções.
+- [ ] Guardar um histórico para cada seção.
+
 
 ## Success Looks Like
-- [ ] _Define rigorous, observable criteria for success. E.g., The endpoint returns 200 OK with the user object, NOT Code compiles_
+- [ ] Ter a barra de seção.
+- [ ] A cada adição que o usuário fizer, a seção deve ser adicionada a barra.
+- [ ] O titulo deve ser adicionado assim que o usuario fizer a primeira pergunta.
 
 ## Notes
-- [ ] _Any specific edge cases, libraries to consider, or potential pitfalls._
+- [ ] Sem notas adicionais
 
 ---
 **⚠️ HUMAN ONLY**: This file is your strategic space. AI agents must not edit it.

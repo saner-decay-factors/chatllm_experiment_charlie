@@ -108,3 +108,51 @@ async def stream_reply(*, user_message: str, history: list[dict], model: str | N
                 delta = parsed.get("choices", [{}])[0].get("delta", {}).get("content")
                 if isinstance(delta, str) and delta:
                     yield delta
+
+
+_TITLE_PROMPT = (
+    "Generate a short title (3 to 6 words) for this chat conversation "
+    "based on the user's question and the assistant's reply below. "
+    "Output ONLY the title, no punctuation, no quotes."
+)
+
+
+async def generate_title(*, user_message: str, assistant_reply: str) -> str:
+    """Ask the LLM to generate a short contextual title from the conversation."""
+    if not OPENROUTER_API_KEY:
+        raise OpenRouterConfigError(
+            "OPENROUTER_API_KEY nao definido. Configure em .env ou environment variables."
+        )
+
+    messages = [
+        {"role": "system", "content": _TITLE_PROMPT},
+        {
+            "role": "user",
+            "content": f"User: {user_message.strip()[:200]}\n\nAssistant: {assistant_reply.strip()[:200]}",
+        },
+    ]
+
+    payload = {
+        "model": OPENROUTER_MODEL_DEFAULT,
+        "messages": messages,
+        "max_tokens": 30,
+        "temperature": 0.3,
+    }
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.post(OPENROUTER_API_URL, json=payload, headers=_build_headers())
+
+    if response.status_code >= 400:
+        # Fallback: extract from user message
+        return user_message.strip()[:50] + ("..." if len(user_message.strip()) > 50 else "")
+
+    data = response.json()
+    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+    title = content.strip().strip('"').strip("'")
+    if not title:
+        return user_message.strip()[:50] + ("..." if len(user_message.strip()) > 50 else "")
+    if len(title) > 100:
+        title = title[:97] + "..."
+
+    return title

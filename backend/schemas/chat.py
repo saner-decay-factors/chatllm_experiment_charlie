@@ -13,6 +13,7 @@ class ChatMessageIn(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=8000)
     model: str | None = None
+    session_key: str = Field(default="default", max_length=120)
     history: list[ChatMessageIn] = Field(default_factory=list)
 
 
