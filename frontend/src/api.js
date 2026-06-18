@@ -93,3 +93,92 @@ async function generateSessionTitle(sessionKey, message) {
   if (!response.ok) throw new Error("Erro ao gerar titulo");
   return response.json();
 }
+
+// ---- Auth API ----
+
+function extractErrorDetail(body) {
+  if (typeof body.detail === "string") return body.detail;
+  if (Array.isArray(body.detail)) {
+    return body.detail.map((d) => d.msg || String(d)).join("; ");
+  }
+  return null;
+}
+
+let _authToken = localStorage.getItem("auth_token") || null;
+
+function getAuthToken() {
+  return _authToken;
+}
+
+function setAuthToken(token) {
+  _authToken = token;
+  if (token) {
+    localStorage.setItem("auth_token", token);
+  } else {
+    localStorage.removeItem("auth_token");
+  }
+}
+
+async function registerRequest(email, password) {
+  const response = await fetch(`${API_BASE}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const detail = extractErrorDetail(body);
+    throw new Error(detail || "Erro ao cadastrar");
+  }
+  const data = await response.json();
+  setAuthToken(data.access_token);
+  return data;
+}
+
+async function loginRequest(email, password) {
+  const response = await fetch(`${API_BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const detail = extractErrorDetail(body);
+    throw new Error(detail || "Erro ao fazer login");
+  }
+  const data = await response.json();
+  setAuthToken(data.access_token);
+  return data;
+}
+
+async function logoutRequest() {
+  if (!_authToken) return;
+  await fetch(`${API_BASE}/api/auth/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${_authToken}`,
+    },
+  }).catch(() => {});
+  setAuthToken(null);
+}
+
+async function fetchMe() {
+  if (!_authToken) return null;
+  const response = await fetch(`${API_BASE}/api/auth/me`, {
+    headers: { Authorization: `Bearer ${_authToken}` },
+  });
+  if (!response.ok) {
+    setAuthToken(null);
+    return null;
+  }
+  return response.json();
+}
+
+function authFetch(url, options = {}) {
+  const headers = { ...options.headers };
+  if (_authToken) {
+    headers["Authorization"] = `Bearer ${_authToken}`;
+  }
+  return fetch(url, { ...options, headers });
+}

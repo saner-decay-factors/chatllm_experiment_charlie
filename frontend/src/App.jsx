@@ -10,7 +10,7 @@ const WELCOME_MESSAGE = {
   content: "Bem-vindo ao ChatLLM Lab. Como posso ajudar voce hoje?",
 };
 
-function App() {
+function ChatApp({ onLogout }) {
   const [sessions, setSessions] = useState([]);
   const [activeSessionKey, setActiveSessionKey] = useState(null);
   const [messages, setMessages] = useState([WELCOME_MESSAGE]);
@@ -53,7 +53,6 @@ function App() {
     }
   }, []);
 
-  // Initialize: load sessions, create one if none exist
   useEffect(() => {
     (async () => {
       setInitializing(true);
@@ -191,7 +190,6 @@ function App() {
     } finally {
       abortControllerRef.current = null;
       setBusy(false);
-      // Refresh sessions to update ordering
       loadSessions().then((data) => setSessions(data));
     }
   };
@@ -225,6 +223,16 @@ function App() {
             </svg>
           </button>
           <div className="brand">ChatLLM Lab</div>
+          <div className="header-right">
+            <button className="logout-btn" onClick={onLogout} title="Sair">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 14H3.333A1.333 1.333 0 0 1 2 12.667V3.333A1.333 1.333 0 0 1 3.333 2H6" />
+                <polyline points="10.667 11.333 14 8 10.667 4.667" />
+                <line x1="14" y1="8" x2="6" y2="8" />
+              </svg>
+              Sair
+            </button>
+          </div>
         </header>
 
         <section className="messages" aria-live="polite" ref={messagesRef}>
@@ -248,6 +256,40 @@ function App() {
       </main>
     </div>
   );
+}
+
+function App() {
+  const [authenticated, setAuthenticated] = useState(null); // null = loading, true/false
+
+  useEffect(() => {
+    (async () => {
+      const me = await fetchMe();
+      setAuthenticated(!!me);
+    })();
+  }, []);
+
+  const handleAuthSuccess = () => {
+    setAuthenticated(true);
+  };
+
+  const handleLogout = async () => {
+    await logoutRequest();
+    setAuthenticated(false);
+  };
+
+  if (authenticated === null) {
+    return (
+      <main className="app-shell">
+        <div className="loading-screen">Carregando...</div>
+      </main>
+    );
+  }
+
+  if (!authenticated) {
+    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  return <ChatApp onLogout={handleLogout} />;
 }
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
