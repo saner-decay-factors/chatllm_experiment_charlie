@@ -4,7 +4,97 @@ function createMessageId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// --- Tela de Login ---
+function LoginPage({ onLogin, onSwitchToRegister }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const data = await loginUser({ email, password });
+      setToken(data.access_token);
+      setUser(data.user);
+      onLogin(data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-page">
+      <form className="auth-form" onSubmit={handleSubmit}>
+        <h1>ChatLLM Lab</h1>
+        <h2>Entrar</h2>
+        {error && <div className="note error">{error}</div>}
+        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+        <input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+        <button type="submit" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button>
+        <p className="auth-link">Nao tem conta? <a href="#" onClick={(e) => { e.preventDefault(); onSwitchToRegister(); }}>Cadastre-se</a></p>
+      </form>
+    </div>
+  );
+}
+
+// --- Tela de Cadastro ---
+function RegisterPage({ onRegister, onSwitchToLogin }) {
+  const [email, setEmail] = useState("");
+  const [nome, setNome] = useState("");
+  const [sobrenome, setSobrenome] = useState("");
+  const [idade, setIdade] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const data = await registerUser({
+        email, nome, sobrenome,
+        idade: idade ? parseInt(idade, 10) : null,
+        password,
+      });
+      setToken(data.access_token);
+      setUser(data.user);
+      onRegister(data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-page">
+      <form className="auth-form" onSubmit={handleSubmit}>
+        <h1>ChatLLM Lab</h1>
+        <h2>Cadastro</h2>
+        {error && <div className="note error">{error}</div>}
+        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+        <input type="text" placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
+        <input type="text" placeholder="Sobrenome" value={sobrenome} onChange={(e) => setSobrenome(e.target.value)} required />
+        <input type="number" placeholder="Idade (opcional)" value={idade} onChange={(e) => setIdade(e.target.value)} min={0} max={150} />
+        <input type="password" placeholder="Senha (min 8 caracteres)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+        <button type="submit" disabled={loading}>{loading ? "Cadastrando..." : "Cadastrar"}</button>
+        <p className="auth-link">Ja tem conta? <a href="#" onClick={(e) => { e.preventDefault(); onSwitchToLogin(); }}>Entrar</a></p>
+      </form>
+    </div>
+  );
+}
+
+// --- App principal ---
 function App() {
+  const [user, setUser] = useState(getUser);
+  const [page, setPage] = useState(user ? "chat" : "login");
+
   const [sessions, setSessions] = useState([]);
   const [currentSessionKey, setCurrentSessionKey] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -26,8 +116,32 @@ function App() {
     [messages]
   );
 
+  // Autenticacao
+  const handleLogin = (userData) => {
+    setUser(userData);
+    setPage("chat");
+  };
+
+  const handleRegister = (userData) => {
+    setUser(userData);
+    setPage("chat");
+  };
+
+  const handleLogout = () => {
+    clearToken();
+    setUser(null);
+    setPage("login");
+    setSessions([]);
+    setMessages([{
+      id: createMessageId(),
+      role: "assistant",
+      content: "Bem-vindo ao ChatLLM Lab. Como posso ajudar voce hoje?",
+    }]);
+  };
+
   // Carregar sessoes ao iniciar
   useEffect(() => {
+    if (!user) return;
     fetchSessions().then((data) => {
       setSessions(data.sessions);
       if (data.sessions.length > 0) {
@@ -36,7 +150,7 @@ function App() {
         loadSessionMessages(latest.session_key);
       }
     }).catch(() => {});
-  }, []);
+  }, [user]);
 
   const loadSessionMessages = async (sessionKey) => {
     try {
@@ -64,8 +178,9 @@ function App() {
   };
 
   const refreshSessions = useCallback(() => {
+    if (!user) return;
     fetchSessions().then((data) => setSessions(data.sessions)).catch(() => {});
-  }, []);
+  }, [user]);
 
   const switchSession = async (sessionKey) => {
     if (busy) return;
@@ -182,6 +297,14 @@ function App() {
     }
   };
 
+  // Tela de autenticacao
+  if (page !== "chat") {
+    if (page === "register") {
+      return <RegisterPage onRegister={handleRegister} onSwitchToLogin={() => setPage("login")} />;
+    }
+    return <LoginPage onLogin={handleLogin} onSwitchToRegister={() => setPage("register")} />;
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -193,6 +316,14 @@ function App() {
           </svg>
         </button>
         <div className="brand">ChatLLM Lab</div>
+        <div className="header-right">
+          {user && (
+            <>
+              <span className="user-name">{user.nome}</span>
+              <button className="logout-btn" onClick={handleLogout}>Sair</button>
+            </>
+          )}
+        </div>
       </header>
 
       <div className="app-body">

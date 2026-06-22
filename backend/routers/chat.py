@@ -16,6 +16,7 @@ from backend.database import get_db
 from backend.models import ChatMessage, ChatSession
 from backend.schemas.chat import ChatRequest, ChatResponse
 from backend.schemas.session import SessionListOut, SessionMessagesOut, SessionSummaryOut
+from backend.services.auth import get_current_user
 from backend.services.openrouter import (
     OpenRouterConfigError,
     generate_reply,
@@ -27,13 +28,13 @@ from backend.services.openrouter import (
 router = APIRouter()
 
 
-def _get_or_create_session(db: Session, session_key: str | None) -> ChatSession:
+def _get_or_create_session(db: Session, session_key: str | None, user_id: int | None = None) -> ChatSession:
     """Retorna sessao existente ou cria uma nova."""
     if session_key:
         session = db.query(ChatSession).filter(ChatSession.session_key == session_key).first()
         if session:
             return session
-    session = ChatSession()
+    session = ChatSession(user_id=user_id)
     db.add(session)
     db.commit()
     db.refresh(session)
@@ -46,13 +47,17 @@ def health_check() -> dict[str, str]:
 
 
 @router.get("/api/sessions", response_model=SessionListOut)
-def list_sessions(db: Session = Depends(get_db)):
-    """Lista todas as sessoes de chat ordenadas pela mais recente."""
-    sessions = (
-        db.query(ChatSession)
-        .order_by(ChatSession.updated_at.desc())
-        .all()
-    )
+def list_sessions(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Lista sessoes de chat. Se autenticado, filtra pelo usuario."""
+    query = db.query(ChatSession)
+    if current_user:
+        query = query.filter(
+            (ChatSession.user_id == current_user.id) | (ChatSession.user_id.is_(None))
+        )
+    sessions = query.order_by(ChatSession.updated_at.desc()).all()
     total = len(sessions)
     return SessionListOut(
         sessions=[
@@ -75,6 +80,7 @@ def get_session_messages(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
 ):
     """Retorna mensagens de uma sessao com paginacao."""
     session = db.query(ChatSession).filter(ChatSession.session_key == session_key).first()
@@ -114,9 +120,13 @@ def get_session_messages(
 
 
 @router.post("/api/sessions")
-def create_session(db: Session = Depends(get_db)):
+def create_session(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
     """Cria uma nova sessao de chat e retorna o session_key."""
-    session = ChatSession()
+    user_id = current_user.id if current_user else None
+    session = ChatSession(user_id=user_id)
     db.add(session)
     db.commit()
     db.refresh(session)
@@ -124,8 +134,13 @@ def create_session(db: Session = Depends(get_db)):
 
 
 @router.post("/api/chat", response_model=ChatResponse)
-async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
-    session = _get_or_create_session(db, payload.session_key)
+async def chat(
+    payload: ChatRequest,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+) -> ChatResponse:
+    user_id = current_user.id if current_user else None
+    session = _get_or_create_session(db, payload.session_key, user_id)
 
     try:
         reply, model_name = await generate_reply(
@@ -171,8 +186,13 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
 
 
 @router.post("/api/chat/stream")
-async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> StreamingResponse:
-    session = _get_or_create_session(db, payload.session_key)
+async def chat_stream(
+    payload: ChatRequest,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+) -> StreamingResponse:
+    user_id = current_user.id if current_user else None
+    session = _get_or_create_session(db, payload.session_key, user_id)
     session_key = session.session_key
     resolved_model = payload.model or OPENROUTER_MODEL_DEFAULT
 
