@@ -1,10 +1,13 @@
-const { useEffect, useMemo, useRef, useState } = React;
+const { useEffect, useMemo, useRef, useState, useCallback } = React;
 
 function createMessageId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function App() {
+  const [sessions, setSessions] = useState([]);
+  const [currentSessionKey, setCurrentSessionKey] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [messages, setMessages] = useState([
     {
       id: createMessageId(),
@@ -22,6 +25,71 @@ function App() {
     () => messages.filter((msg) => msg.role === "user" || msg.role === "assistant"),
     [messages]
   );
+
+  // Carregar sessoes ao iniciar
+  useEffect(() => {
+    fetchSessions().then((data) => {
+      setSessions(data.sessions);
+      if (data.sessions.length > 0) {
+        const latest = data.sessions[0];
+        setCurrentSessionKey(latest.session_key);
+        loadSessionMessages(latest.session_key);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const loadSessionMessages = async (sessionKey) => {
+    try {
+      const data = await fetchSessionMessages(sessionKey);
+      const msgs = data.messages.map((m) => ({
+        id: createMessageId(),
+        role: m.role,
+        content: m.content,
+      }));
+      if (msgs.length === 0) {
+        msgs.push({
+          id: createMessageId(),
+          role: "assistant",
+          content: "Bem-vindo ao ChatLLM Lab. Como posso ajudar voce hoje?",
+        });
+      }
+      setMessages(msgs);
+    } catch {
+      setMessages([{
+        id: createMessageId(),
+        role: "assistant",
+        content: "Bem-vindo ao ChatLLM Lab. Como posso ajudar voce hoje?",
+      }]);
+    }
+  };
+
+  const refreshSessions = useCallback(() => {
+    fetchSessions().then((data) => setSessions(data.sessions)).catch(() => {});
+  }, []);
+
+  const switchSession = async (sessionKey) => {
+    if (busy) return;
+    setCurrentSessionKey(sessionKey);
+    setError("");
+    await loadSessionMessages(sessionKey);
+  };
+
+  const newSession = async () => {
+    if (busy) return;
+    try {
+      const data = await createSession();
+      setCurrentSessionKey(data.session_key);
+      setMessages([{
+        id: createMessageId(),
+        role: "assistant",
+        content: "Bem-vindo ao ChatLLM Lab. Como posso ajudar voce hoje?",
+      }]);
+      setError("");
+      refreshSessions();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   useEffect(() => {
     const el = messagesRef.current;
@@ -63,6 +131,7 @@ function App() {
       await sendMessageStream({
         message: cleaned,
         history: chatHistory,
+        session_key: currentSessionKey,
         signal: abortController.signal,
         onDelta: (delta) => {
           setMessages((prev) =>
@@ -72,6 +141,10 @@ function App() {
                 : msg
             )
           );
+        },
+        onDone: (sessionKey) => {
+          if (sessionKey) setCurrentSessionKey(sessionKey);
+          refreshSessions();
         },
       });
 
@@ -105,35 +178,71 @@ function App() {
     } finally {
       abortControllerRef.current = null;
       setBusy(false);
+      refreshSessions();
     }
   };
 
   return (
     <main className="app-shell">
       <header className="app-header">
+        <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Alternar sidebar">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <rect x="2" y="4" width="16" height="2" rx="1" />
+            <rect x="2" y="9" width="16" height="2" rx="1" />
+            <rect x="2" y="14" width="16" height="2" rx="1" />
+          </svg>
+        </button>
         <div className="brand">ChatLLM Lab</div>
       </header>
 
-      <section className="messages" aria-live="polite" ref={messagesRef}>
-        <div className="messages-inner">
-          {messages.map((msg) => (
-            <article key={msg.id} className={`bubble ${msg.role}`}>
-              <MessageContent content={msg.content} />
-            </article>
-          ))}
+      <div className="app-body">
+        {sidebarOpen && (
+          <aside className="sidebar">
+            <button className="sidebar-new-btn" onClick={newSession} disabled={busy}>
+              + Nova conversa
+            </button>
+            <div className="sidebar-sessions">
+              {sessions.length === 0 && (
+                <div className="sidebar-empty">Nenhuma conversa ainda</div>
+              )}
+              {sessions.map((s) => (
+                <button
+                  key={s.session_key}
+                  className={`sidebar-item ${s.session_key === currentSessionKey ? "active" : ""}`}
+                  onClick={() => switchSession(s.session_key)}
+                  disabled={busy}
+                  title={s.title || "Conversa sem titulo"}
+                >
+                  {s.title || "Nova conversa"}
+                </button>
+              ))}
+            </div>
+          </aside>
+        )}
+
+        <div className="chat-area">
+          <section className="messages" aria-live="polite" ref={messagesRef}>
+            <div className="messages-inner">
+              {messages.map((msg) => (
+                <article key={msg.id} className={`bubble ${msg.role}`}>
+                  <MessageContent content={msg.content} />
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <Composer
+            text={text}
+            busy={busy}
+            error={error}
+            onChangeText={setText}
+            onSubmit={onSubmit}
+            onStop={onStop}
+          />
         </div>
-      </section>
+      </div>
 
-      <Composer
-        text={text}
-        busy={busy}
-        error={error}
-        onChangeText={setText}
-        onSubmit={onSubmit}
-        onStop={onStop}
-      />
-
-      <div className="warning-banner">Lembre-se, você precisa focar no experimento!!!</div>
+      <div className="warning-banner">Lembre-se, voce precisa focar no experimento!!!</div>
     </main>
   );
 }

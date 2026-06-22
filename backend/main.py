@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -11,6 +12,8 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.database import Base, engine
 from backend.routers.chat import router as chat_router
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
 
 
 Base.metadata.create_all(bind=engine)

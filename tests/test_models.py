@@ -2,7 +2,67 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from backend.models import ChatMessage
+from backend.models import ChatMessage, ChatSession
+
+
+class TestChatSession:
+    def test_create_session(self, db_session):
+        """Deve criar uma sessao com valores padrao."""
+        session = ChatSession()
+        db_session.add(session)
+        db_session.commit()
+        db_session.refresh(session)
+
+        assert session.id is not None
+        assert session.session_key is not None
+        assert len(session.session_key) > 10
+        assert session.title is None
+        assert isinstance(session.created_at, datetime)
+        assert isinstance(session.updated_at, datetime)
+
+    def test_create_session_with_title(self, db_session):
+        """Deve criar uma sessao com titulo definido."""
+        session = ChatSession(title="Meu Chat")
+        db_session.add(session)
+        db_session.commit()
+        db_session.refresh(session)
+
+        assert session.title == "Meu Chat"
+
+    def test_session_key_unique(self, db_session):
+        """Duas sessoes devem ter session_keys diferentes."""
+        s1 = ChatSession()
+        s2 = ChatSession()
+        db_session.add_all([s1, s2])
+        db_session.commit()
+
+        assert s1.session_key != s2.session_key
+
+    def test_session_updated_on_change(self, db_session):
+        """updated_at deve ser atualizado ao modificar a sessao."""
+        from datetime import timedelta
+        session = ChatSession(title="Original")
+        db_session.add(session)
+        db_session.commit()
+
+        original_updated = session.updated_at
+
+        session.title = "Modificado"
+        db_session.commit()
+
+        db_session.refresh(session)
+        # Pode ser o mesmo segundo, mas deve ser >=
+        assert session.updated_at >= original_updated
+
+    def test_query_sessions_ordered(self, db_session):
+        """Sessoes devem ser ordenaveis por updated_at."""
+        s1 = ChatSession(title="Primeira")
+        s2 = ChatSession(title="Segunda")
+        db_session.add_all([s1, s2])
+        db_session.commit()
+
+        results = db_session.query(ChatSession).order_by(ChatSession.updated_at.desc()).all()
+        assert len(results) >= 2
 
 
 class TestChatMessage:

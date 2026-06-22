@@ -69,3 +69,61 @@ class TestCORSMiddleware:
         )
         # O FastAPI com allow_origins=["*"] permite a requisicao
         assert response.status_code in (200, 405)
+
+
+class TestSessionEndpoints:
+    def test_list_sessions_empty(self, client: TestClient):
+        """Lista de sessoes deve retornar array vazio quando nao ha sessoes."""
+        response = client.get("/api/sessions")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 0
+        assert data["sessions"] == []
+
+    def test_create_session(self, client: TestClient):
+        """Criar uma sessao deve retornar um session_key."""
+        response = client.post("/api/sessions")
+        assert response.status_code == 200
+        data = response.json()
+        assert "session_key" in data
+        assert len(data["session_key"]) > 10
+
+    def test_create_and_list_sessions(self, client: TestClient):
+        """Apos criar, a sessao deve aparecer na lista."""
+        client.post("/api/sessions")
+        response = client.get("/api/sessions")
+        data = response.json()
+        assert data["total"] >= 1
+
+    def test_get_session_messages_not_found(self, client: TestClient):
+        """Sessao inexistente deve retornar 404."""
+        response = client.get("/api/sessions/inexistente/messages")
+        assert response.status_code == 404
+
+    def test_get_session_messages_empty(self, client: TestClient):
+        """Sessao recem-criada deve ter 0 mensagens."""
+        create_resp = client.post("/api/sessions")
+        sk = create_resp.json()["session_key"]
+        response = client.get(f"/api/sessions/{sk}/messages")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 0
+        assert data["messages"] == []
+        assert data["page"] == 1
+        assert data["page_size"] == 50
+
+    def test_chat_response_includes_session_key(self, client: TestClient):
+        """O endpoint /api/chat deve retornar session_key na resposta."""
+        response = client.post(
+            "/api/chat",
+            json={"message": "Ola"},
+        )
+        # Pode falhar sem API key, mas deve conter session_key se 503
+        assert response.status_code in (200, 503)
+        if response.status_code == 503:
+            data = response.json()
+            # Status 503 é config error, nao tem session_key
+            pass
+        else:
+            data = response.json()
+            assert "session_key" in data

@@ -26,6 +26,11 @@
         --border: #e5e5e5;
         --composer-bg: #ffffff;
         --composer-border: #d9d9d9;
+        --sidebar-bg: #f9f9f9;
+        --sidebar-hover: #ececec;
+        --sidebar-active: #e0e0e0;
+        --sidebar-width: 260px;
+        --header-height: 50px;
       }
 
       * {
@@ -62,9 +67,27 @@
 
       .app-header {
         flex-shrink: 0;
-        padding: 12px 24px;
+        padding: 8px 16px;
         border-bottom: 1px solid var(--border);
-        text-align: center;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: var(--header-height);
+      }
+
+      .sidebar-toggle {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        border-radius: 4px;
+      }
+
+      .sidebar-toggle:hover {
+        background: var(--sidebar-hover);
       }
 
       .brand {
@@ -72,6 +95,88 @@
         font-size: 0.95rem;
         color: var(--text);
         letter-spacing: 0;
+      }
+
+      .app-body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        overflow: hidden;
+      }
+
+      .sidebar {
+        width: var(--sidebar-width);
+        flex-shrink: 0;
+        background: var(--sidebar-bg);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .sidebar-new-btn {
+        margin: 12px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-page);
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text);
+        text-align: center;
+        transition: background 120ms;
+      }
+
+      .sidebar-new-btn:hover:not(:disabled) {
+        background: var(--sidebar-hover);
+      }
+
+      .sidebar-sessions {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 8px 12px;
+      }
+
+      .sidebar-empty {
+        padding: 24px 16px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .sidebar-item {
+        display: block;
+        width: 100%;
+        padding: 10px 12px;
+        margin-bottom: 2px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: var(--text);
+        text-align: left;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        transition: background 120ms;
+      }
+
+      .sidebar-item:hover:not(:disabled) {
+        background: var(--sidebar-hover);
+      }
+
+      .sidebar-item.active {
+        background: var(--sidebar-active);
+        font-weight: 500;
+      }
+
+      .chat-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
       }
 
       .messages {

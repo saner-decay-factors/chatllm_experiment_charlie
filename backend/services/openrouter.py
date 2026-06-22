@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 from backend.config import OPENROUTER_API_KEY, OPENROUTER_API_URL, OPENROUTER_MODEL_DEFAULT
 
@@ -71,6 +74,58 @@ async def generate_reply(*, user_message: str, history: list[dict], model: str |
     return reply, resolved_model
 
 
+_TITLE_PROMPT = (
+    "You are a conversation title generator. Based on the user's message and the assistant's reply below, "
+    "generate a short and descriptive title (maximum 6 words) for this conversation. "
+    "Return ONLY the title text, nothing else. No quotes, no punctuation at the end."
+)
+
+
+async def generate_title(*, user_message: str, assistant_reply: str) -> str:
+    """Faz uma chamada extra ao OpenRouter para gerar um titulo curto para a conversa."""
+    if not OPENROUTER_API_KEY:
+        raise OpenRouterConfigError(
+            "OPENROUTER_API_KEY nao definido. Configure em .env ou environment variables."
+        )
+
+    messages = [
+        {"role": "system", "content": _TITLE_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"User message: {user_message}\n\n"
+                f"Assistant reply: {assistant_reply}"
+            ),
+        },
+    ]
+
+    payload = {
+        "model": OPENROUTER_MODEL_DEFAULT,
+        "messages": messages,
+        "max_tokens": 30,
+    }
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.post(OPENROUTER_API_URL, json=payload, headers=_build_headers())
+
+    if response.status_code >= 400:
+        logger.warning(
+            "generate_title falhou HTTP %s: %s",
+            response.status_code,
+            response.text[:200],
+        )
+        return None
+
+    data = response.json()
+    title = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+    if not title:
+        logger.warning("generate_title: resposta vazia da API")
+        return None
+
+    logger.info("generate_title: '%s'", title)
+    return title[:100]
+
+
 async def stream_reply(*, user_message: str, history: list[dict], model: str | None = None):
     if not OPENROUTER_API_KEY:
         raise OpenRouterConfigError(
@@ -105,6 +160,9 @@ async def stream_reply(*, user_message: str, history: list[dict], model: str | N
                 except json.JSONDecodeError:
                     continue
 
-                delta = parsed.get("choices", [{}])[0].get("delta", {}).get("content")
+                choices = parsed.get("choices") or []
+                if not choices:
+                    continue
+                delta = choices[0].get("delta", {}).get("content")
                 if isinstance(delta, str) and delta:
                     yield delta
