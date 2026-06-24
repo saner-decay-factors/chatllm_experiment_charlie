@@ -69,3 +69,68 @@ class TestCORSMiddleware:
         )
         # O FastAPI com allow_origins=["*"] permite a requisicao
         assert response.status_code in (200, 405)
+
+
+class TestSessionsEndpoint:
+    def test_list_sessions_empty(self, client: TestClient):
+        """Lista de sessoes deve estar vazia inicialmente."""
+        response = client.get("/api/sessions")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sessions"] == []
+
+    def test_create_session(self, client: TestClient):
+        """Criar uma sessao deve retornar 201 com os dados."""
+        response = client.post("/api/sessions", json={})
+        assert response.status_code == 201
+        data = response.json()
+        assert data["id"] is not None
+        assert data["title"] is None
+
+    def test_create_and_list_sessions(self, client: TestClient):
+        """Apos criar, a sessao deve aparecer na lista."""
+        created = client.post("/api/sessions", json={})
+        session_id = created.json()["id"]
+        response = client.get("/api/sessions")
+        assert response.status_code == 200
+        ids = [s["id"] for s in response.json()["sessions"]]
+        assert session_id in ids
+
+    def test_get_session_messages_empty(self, client: TestClient):
+        """Sessao recem-criada deve ter lista de mensagens vazia."""
+        created = client.post("/api/sessions", json={})
+        session_id = created.json()["id"]
+        response = client.get(f"/api/sessions/{session_id}/messages")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["session"]["id"] == session_id
+        assert data["messages"] == []
+
+    def test_delete_session(self, client: TestClient):
+        """Deletar sessao deve retornar 204 e remove-la da lista."""
+        created = client.post("/api/sessions", json={})
+        session_id = created.json()["id"]
+        del_resp = client.delete(f"/api/sessions/{session_id}")
+        assert del_resp.status_code == 204
+        list_resp = client.get("/api/sessions")
+        ids = [s["id"] for s in list_resp.json()["sessions"]]
+        assert session_id not in ids
+
+    def test_get_nonexistent_session(self, client: TestClient):
+        """Sessao inexistente deve retornar 404."""
+        response = client.get("/api/sessions/99999")
+        assert response.status_code == 404
+
+    def test_delete_nonexistent_session(self, client: TestClient):
+        """Deletar sessao inexistente deve retornar 404."""
+        response = client.delete("/api/sessions/99999")
+        assert response.status_code == 404
+
+    def test_chat_creates_session_automatically(self, client: TestClient):
+        """Enviar mensagem sem session_id deve criar sessao automaticamente."""
+        response = client.post("/api/chat", json={"message": "Ola"})
+        # Pode ser 200 (sucesso com API key) ou 503/502 (sem API key)
+        # Mas de qualquer forma, uma sessao deve ser criada
+        list_resp = client.get("/api/sessions")
+        sessions = list_resp.json()["sessions"]
+        assert len(sessions) >= 1

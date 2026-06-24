@@ -5,17 +5,21 @@
 **Hard rule**: AI agents must not edit this file and must not draft paste-ready content for it.
 
 ## The Problem
-_State clearly what you are trying to achieve and the architectural constraints, avoiding implementation specifics of HOW to do it. Focus on WHAT and WHY._
+- Sessões de chat com titulo automatico
 
 ## Steps
-- [ ] _Decompose the problem into actionable logical steps._
-- [ ] _Each step should represent a verifiable piece of work._
+-  Verifique o historico das conversas (onde estão armazenados)
+- Cheque o que precisa mudar para suprotar multiplas sessoes
+- Configurar o banco SQLite
+- Definir entidadades caso não estejam definidas
 
 ## Success Looks Like
-- [ ] _Define rigorous, observable criteria for success. E.g., The endpoint returns 200 OK with the user object, NOT Code compiles_
+- O titulo automatico deve ser gerado apos a primeira mensagem
 
 ## Notes
-- [ ] _Any specific edge cases, libraries to consider, or potential pitfalls._
-
+Requisitos minimos:
+1. Usuario pode criar e alternar sessoes atraves de uma barra lateral (similar a ChatGPT e Gemini).
+2. Cada sessao guarda seu historico.
+3. Se a sessao ainda nao tiver titulo, o titulo deve ser definido automaticamente com base no contexto 
 ---
 **⚠️ HUMAN ONLY**: This file is your strategic space. AI agents must not edit it.

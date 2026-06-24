@@ -62,9 +62,19 @@ class TestChatRequest:
         req = ChatRequest(message="Hello")
         assert req.history == []
 
+    def test_valid_request_with_session_id(self):
+        req = ChatRequest(message="Hello", session_id=7)
+        assert req.session_id == 7
+        assert req.message == "Hello"
+
 
 class TestChatResponse:
     def test_valid_response(self):
         resp = ChatResponse(reply="Resposta do modelo.", model="google/gemma-4-31b-it")
         assert resp.reply == "Resposta do modelo."
         assert resp.model == "google/gemma-4-31b-it"
+        assert resp.session_id is None
+
+    def test_valid_response_with_session_id(self):
+        resp = ChatResponse(reply="Resposta.", model="model", session_id=42)
+        assert resp.session_id == 42
