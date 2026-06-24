@@ -4,7 +4,71 @@ function createMessageId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function AuthScreen({ onAuth }) {
+  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      await authUser(mode === "login" ? "login" : "register", email, password);
+      onAuth();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="auth-screen">
+      <div className="auth-card">
+        <h1>ChatLLM Lab</h1>
+        <h2>{mode === "login" ? "Entrar" : "Cadastrar"}</h2>
+        {error && <div className="auth-error">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            disabled={busy}
+            autoFocus
+          />
+          <input
+            type="password"
+            placeholder="Senha"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            disabled={busy}
+          />
+          <button type="submit" disabled={busy || !email.trim() || !password}>
+            {busy ? "Aguarde..." : mode === "login" ? "Entrar" : "Cadastrar"}
+          </button>
+        </form>
+        <p className="auth-toggle">
+          {mode === "login" ? (
+            <>Nao tem conta? <a href="#" onClick={(e) => { e.preventDefault(); setMode("register"); setError(""); }}>Cadastre-se</a></>
+          ) : (
+            <>Ja tem conta? <a href="#" onClick={(e) => { e.preventDefault(); setMode("login"); setError(""); }}>Faca login</a></>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function App() {
+  const [user, setUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState([
@@ -27,9 +91,12 @@ function App() {
     [messages]
   );
 
-  // Carregar sessoes ao montar
+  // Verificar autenticacao ao montar
   useEffect(() => {
-    loadSessions();
+    checkAuth().then((u) => {
+      if (u) setUser(u);
+      setAuthChecked(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -42,6 +109,10 @@ function App() {
       abortControllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (user) loadSessions();
+  }, [user]);
 
   const loadSessions = async () => {
     try {
@@ -118,6 +189,23 @@ function App() {
     } catch {
       // ignora
     }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch { /* ignora */ }
+    setUser(null);
+    setSessions([]);
+    setActiveSessionId(null);
+    currentSessionIdRef.current = null;
+    setMessages([
+      {
+        id: createMessageId(),
+        role: "assistant",
+        content: "Bem-vindo ao ChatLLM Lab. Como posso ajudar voce hoje?",
+      },
+    ]);
   };
 
   const onStop = () => {
@@ -202,6 +290,12 @@ function App() {
     }
   };
 
+  if (!authChecked) return null;
+
+  if (!user) {
+    return <AuthScreen onAuth={() => checkAuth().then(setUser)} />;
+  }
+
   return (
     <div className="app-layout">
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
@@ -239,9 +333,15 @@ function App() {
             onClick={() => setSidebarOpen((v) => !v)}
             aria-label="Alternar barra lateral"
           >
-            {sidebarOpen ? '\u2630' : '\u2630'}
+            {'\u2630'}
           </button>
           <div className="brand">ChatLLM Lab</div>
+          <div className="user-info">
+            <span className="user-email">{user?.email}</span>
+            <button className="logout-btn" onClick={handleLogout} title="Sair">
+              Sair
+            </button>
+          </div>
         </header>
 
         <section className="messages" aria-live="polite" ref={messagesRef}>

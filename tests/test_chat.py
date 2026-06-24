@@ -4,6 +4,27 @@ import pytest
 from fastapi.testclient import TestClient
 
 
+def _auth_token(client: TestClient) -> str:
+    """Cria ou obtem token JWT. Usa email unico por chamada."""
+    import secrets
+    email = f"{secrets.token_hex(4)}@example.com"
+    resp = client.post(
+        "/api/auth/register",
+        json={"email": email, "password": "12345678"},
+    )
+    if resp.status_code == 409:
+        # Ja existe, tenta login
+        resp = client.post(
+            "/api/auth/login",
+            json={"email": email, "password": "12345678"},
+        )
+    return resp.json()["access_token"]
+
+
+def _auth_header(client: TestClient) -> dict:
+    return {"Authorization": f"Bearer {_auth_token(client)}"}
+
+
 class TestHealthEndpoint:
     def test_health_returns_ok(self, client: TestClient):
         response = client.get("/health")
@@ -25,6 +46,7 @@ class TestChatEndpoint:
         response = client.post(
             "/api/chat",
             json={"message": "Ola"},
+            headers=_auth_header(client),
         )
         # Sem OPENROUTER_API_KEY definida, esperamos 503 (config error)
         assert response.status_code in (200, 422, 503)
@@ -34,8 +56,17 @@ class TestChatEndpoint:
         response = client.post(
             "/api/chat",
             json={"message": ""},
+            headers=_auth_header(client),
         )
         assert response.status_code == 422
+
+    def test_chat_requires_auth(self, client: TestClient):
+        """Endpoint /api/chat deve exigir autenticacao."""
+        response = client.post(
+            "/api/chat",
+            json={"message": "Ola"},
+        )
+        assert response.status_code == 401
 
 
 class TestChatStreamEndpoint:
@@ -44,6 +75,7 @@ class TestChatStreamEndpoint:
         response = client.post(
             "/api/chat/stream",
             json={"message": "Ola"},
+            headers=_auth_header(client),
         )
         # Streaming pode iniciar e depois falhar sem API key
         assert response.status_code in (200, 422, 503)
@@ -53,8 +85,17 @@ class TestChatStreamEndpoint:
         response = client.post(
             "/api/chat/stream",
             json={"message": ""},
+            headers=_auth_header(client),
         )
         assert response.status_code == 422
+
+    def test_chat_stream_requires_auth(self, client: TestClient):
+        """Endpoint /api/chat/stream deve exigir autenticacao."""
+        response = client.post(
+            "/api/chat/stream",
+            json={"message": "Ola"},
+        )
+        assert response.status_code == 401
 
 
 class TestCORSMiddleware:
@@ -72,16 +113,24 @@ class TestCORSMiddleware:
 
 
 class TestSessionsEndpoint:
+    def _auth_headers(self, client: TestClient) -> dict:
+        return {"Authorization": f"Bearer {_auth_token(client)}"}
+
+    def test_list_sessions_requires_auth(self, client: TestClient):
+        """Listar sessoes sem auth deve retornar 401."""
+        response = client.get("/api/sessions")
+        assert response.status_code == 401
+
     def test_list_sessions_empty(self, client: TestClient):
         """Lista de sessoes deve estar vazia inicialmente."""
-        response = client.get("/api/sessions")
+        response = client.get("/api/sessions", headers=_auth_header(client))
         assert response.status_code == 200
         data = response.json()
         assert data["sessions"] == []
 
     def test_create_session(self, client: TestClient):
         """Criar uma sessao deve retornar 201 com os dados."""
-        response = client.post("/api/sessions", json={})
+        response = client.post("/api/sessions", json={}, headers=_auth_header(client))
         assert response.status_code == 201
         data = response.json()
         assert data["id"] is not None
@@ -89,18 +138,21 @@ class TestSessionsEndpoint:
 
     def test_create_and_list_sessions(self, client: TestClient):
         """Apos criar, a sessao deve aparecer na lista."""
-        created = client.post("/api/sessions", json={})
+        created = client.post("/api/sessions", json={}, headers=_auth_header(client))
         session_id = created.json()["id"]
-        response = client.get("/api/sessions")
+        response = client.get("/api/sessions", headers=_auth_header(client))
         assert response.status_code == 200
         ids = [s["id"] for s in response.json()["sessions"]]
         assert session_id in ids
 
     def test_get_session_messages_empty(self, client: TestClient):
         """Sessao recem-criada deve ter lista de mensagens vazia."""
-        created = client.post("/api/sessions", json={})
+        created = client.post("/api/sessions", json={}, headers=_auth_header(client))
         session_id = created.json()["id"]
-        response = client.get(f"/api/sessions/{session_id}/messages")
+        response = client.get(
+            f"/api/sessions/{session_id}/messages",
+            headers=_auth_header(client),
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["session"]["id"] == session_id
@@ -108,29 +160,34 @@ class TestSessionsEndpoint:
 
     def test_delete_session(self, client: TestClient):
         """Deletar sessao deve retornar 204 e remove-la da lista."""
-        created = client.post("/api/sessions", json={})
+        created = client.post("/api/sessions", json={}, headers=_auth_header(client))
         session_id = created.json()["id"]
-        del_resp = client.delete(f"/api/sessions/{session_id}")
+        del_resp = client.delete(
+            f"/api/sessions/{session_id}",
+            headers=_auth_header(client),
+        )
         assert del_resp.status_code == 204
-        list_resp = client.get("/api/sessions")
+        list_resp = client.get("/api/sessions", headers=_auth_header(client))
         ids = [s["id"] for s in list_resp.json()["sessions"]]
         assert session_id not in ids
 
     def test_get_nonexistent_session(self, client: TestClient):
         """Sessao inexistente deve retornar 404."""
-        response = client.get("/api/sessions/99999")
+        response = client.get("/api/sessions/99999", headers=_auth_header(client))
         assert response.status_code == 404
 
     def test_delete_nonexistent_session(self, client: TestClient):
         """Deletar sessao inexistente deve retornar 404."""
-        response = client.delete("/api/sessions/99999")
+        response = client.delete("/api/sessions/99999", headers=_auth_header(client))
         assert response.status_code == 404
 
     def test_chat_creates_session_automatically(self, client: TestClient):
         """Enviar mensagem sem session_id deve criar sessao automaticamente."""
-        response = client.post("/api/chat", json={"message": "Ola"})
-        # Pode ser 200 (sucesso com API key) ou 503/502 (sem API key)
-        # Mas de qualquer forma, uma sessao deve ser criada
-        list_resp = client.get("/api/sessions")
+        response = client.post(
+            "/api/chat",
+            json={"message": "Ola"},
+            headers=_auth_header(client),
+        )
+        list_resp = client.get("/api/sessions", headers=_auth_header(client))
         sessions = list_resp.json()["sessions"]
         assert len(sessions) >= 1

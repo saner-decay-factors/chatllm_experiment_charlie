@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -16,3 +17,5 @@ OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 SQLITE_PATH = ROOT_DIR / "database" / "chat.db"
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{SQLITE_PATH}"
+
+JWT_SECRET = os.getenv("JWT_SECRET") or secrets.token_urlsafe(32)

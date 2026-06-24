@@ -59,6 +59,128 @@
         display: flex;
       }
 
+      /* --- Auth screen --- */
+      .auth-screen {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f5f7;
+      }
+
+      .auth-card {
+        background: #fff;
+        padding: 40px 36px;
+        border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+      }
+
+      .auth-card h1 {
+        font-size: 1.4rem;
+        margin: 0 0 4px;
+      }
+
+      .auth-card h2 {
+        font-size: 1rem;
+        font-weight: 400;
+        color: var(--muted);
+        margin: 0 0 24px;
+      }
+
+      .auth-card form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .auth-card input {
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 1rem;
+        outline: none;
+        transition: border-color 0.12s;
+      }
+
+      .auth-card input:focus {
+        border-color: #888;
+      }
+
+      .auth-card button {
+        padding: 12px;
+        border: none;
+        border-radius: 10px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+
+      .auth-card button:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+
+      .auth-card button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .auth-error {
+        background: #fff5f5;
+        color: #c0392b;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+      }
+
+      .auth-toggle {
+        margin-top: 20px;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .auth-toggle a {
+        color: var(--text);
+        text-decoration: underline;
+      }
+
+      .user-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+      }
+
+      .user-email {
+        color: var(--muted);
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .logout-btn {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 3px 10px;
+        font-size: 0.78rem;
+        cursor: pointer;
+        color: var(--muted);
+        transition: background 0.12s;
+      }
+
+      .logout-btn:hover {
+        background: #f0f0f0;
+      }
+
       .sidebar {
         width: 260px;
         flex-shrink: 0;
