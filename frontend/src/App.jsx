@@ -1,10 +1,23 @@
 const { useEffect, useMemo, useRef, useState, useCallback } = React;
 
+const AUTH_TOKEN_KEY = "chatllm_auth_token";
+
+function getAuthToken() {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+function setAuthToken(token) {
+  if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+  else localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
 function createMessageId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: createMessageId(),
@@ -28,6 +41,46 @@ function App() {
   const initialLoadRef = useRef(true);
   const sessionJustChangedRef = useRef(false);
 
+  // Check stored auth on mount
+  useEffect(() => {
+    const storedToken = getAuthToken();
+    if (storedToken) {
+      authMe(storedToken).then((data) => {
+        if (data) {
+          setUser({ token: storedToken, email: data.email, userId: data.user_id });
+        } else {
+          setAuthToken(null);
+        }
+        setAuthReady(true);
+      }).catch(() => {
+        setAuthToken(null);
+        setAuthReady(true);
+      });
+    } else {
+      setAuthReady(true);
+    }
+  }, []);
+
+  const handleAuth = useCallback((userData) => {
+    setUser(userData);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    const token = getAuthToken();
+    if (token) {
+      authLogout(token).catch(() => {});
+    }
+    setAuthToken(null);
+    setUser(null);
+    setMessages([{
+      id: createMessageId(),
+      role: "assistant",
+      content: "Bem-vindo ao ChatLLM Lab. Como posso ajudar voce hoje?",
+    }]);
+    setCurrentSessionKey(null);
+    setSessions([]);
+  }, []);
+
   const chatHistory = useMemo(
     () => messages.filter((msg) => msg.role === "user" || msg.role === "assistant"),
     [messages]
@@ -35,6 +88,7 @@ function App() {
 
   // Load sessions and models on mount
   useEffect(() => {
+    if (!user) return;
     fetchModels().then((data) => {
       if (data.models && data.models.length) {
         // Merge API models with defaults, ensuring Gemma is always present
@@ -43,16 +97,18 @@ function App() {
       }
     }).catch(() => {});
     loadSessions();
-  }, []);
+  }, [user]);
 
   const loadSessions = useCallback(() => {
-    fetchSessions().then((data) => {
+    const token = getAuthToken();
+    if (!token) return;
+    fetchSessions(token).then((data) => {
       setSessions(data);
       if (initialLoadRef.current && data.length > 0) {
         // Load the most recent session
         const mostRecent = data[0];
         setCurrentSessionKey(mostRecent.session_key);
-        fetchSessionMessages(mostRecent.session_key).then((msgs) => {
+        fetchSessionMessages(mostRecent.session_key, token).then((msgs) => {
           if (msgs.length > 0) {
             setMessages(msgs.map((m) => ({
               id: createMessageId(),
@@ -111,11 +167,12 @@ function App() {
 
   const handleSelectSession = useCallback(async (sessionKey) => {
     if (busy) return;
+    const token = getAuthToken();
     setShowSessionDropdown(false);
     setCurrentSessionKey(sessionKey);
     sessionJustChangedRef.current = true;
     try {
-      const msgs = await fetchSessionMessages(sessionKey);
+      const msgs = await fetchSessionMessages(sessionKey, token);
       setMessages(msgs.length > 0
         ? msgs.map((m) => ({
             id: createMessageId(),
@@ -135,10 +192,11 @@ function App() {
 
   const handleDeleteSession = useCallback(async (e, sessionKey) => {
     e.stopPropagation();
+    const token = getAuthToken();
     try {
-      await deleteSession(sessionKey);
+      await deleteSession(sessionKey, token);
       // Reload sessions and reset if current session was deleted
-      const data = await fetchSessions();
+      const data = await fetchSessions(token);
       setSessions(data);
       if (currentSessionKey === sessionKey) {
         handleNewSession();
@@ -181,6 +239,7 @@ function App() {
         message: cleaned,
         model: currentModel,
         session_key: currentSessionKey,
+        token: getAuthToken(),
         history: chatHistory,
         signal: abortController.signal,
         onDelta: (delta) => {
@@ -235,10 +294,27 @@ function App() {
 
   const currentSession = sessions.find((s) => s.session_key === currentSessionKey);
 
+  if (!authReady) {
+    return null;
+  }
+
+  if (!user) {
+    return <AuthScreen onAuth={handleAuth} />;
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
         <div className="brand">ChatLLM Lab</div>
+        <div className="header-center">
+          <span className="header-user">{user.email}</span>
+          <button className="logout-btn" onClick={handleLogout} title="Sair">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+              <path d="M5 1H3a1 1 0 00-1 1v10a1 1 0 001 1h2M9 10l3-3-3-3M12 7H5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+            </svg>
+            Sair
+          </button>
+        </div>
         <div className="header-right" ref={sessionDropdownRef}>
           <button
             className="dropdown-btn session-btn"
@@ -290,6 +366,13 @@ function App() {
                   </button>
                 </div>
               ))}
+              <div className="dropdown-divider"></div>
+              <button className="dropdown-item logout-item" onClick={handleLogout}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+                  <path d="M5 1H3a1 1 0 00-1 1v10a1 1 0 001 1h2M9 10l3-3-3-3M12 7H5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                </svg>
+                Sair
+              </button>
             </div>
           )}
         </div>

@@ -16,6 +16,9 @@ class ChatSession(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     session_key: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True, index=True
+    )
     title: Mapped[str] = mapped_column(String(255), default="Nova conversa")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
@@ -23,6 +26,25 @@ class ChatSession(Base):
     messages: Mapped[list[ChatMessage]] = relationship(
         "ChatMessage", back_populates="session", cascade="all, delete-orphan"
     )
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255))
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+class AuthToken(Base):
+    __tablename__ = "auth_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
 
 class ChatMessage(Base):

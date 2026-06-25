@@ -16,6 +16,7 @@ class ChatRequest(BaseModel):
     model: str | None = None
     history: list[ChatMessageIn] = Field(default_factory=list)
     session_key: str | None = None
+    token: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -37,3 +38,19 @@ class MessageOut(BaseModel):
     content: str
     model: str
     created_at: datetime
+
+
+class AuthSignup(BaseModel):
+    email: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AuthLogin(BaseModel):
+    email: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AuthResponse(BaseModel):
+    token: str
+    email: str
+    user_id: int

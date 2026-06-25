@@ -1,52 +1,57 @@
 # Relatório de Implementação
 
 ## Resumo
-- **Alteração**: Implementação de sistema de sessões de chat (múltiplas conversas) e seletor de modelos LLM.
+- **Alteração 1**: Sistema de sessões de chat (múltiplas conversas) e seletor de modelos LLM.
+- **Alteração 2**: Sistema de autenticação de usuários (cadastro/login/logout) com persistência em SQLite.
 - **Status**: Completo
 
 ## Alterações Realizadas
 
-### Backend
+### Backend — Sessões e Modelos
 
-1. **`backend/config.py`** — Adicionado dicionário `MODEL_OPTIONS` mapeando nomes amigáveis ("ChatGPT", "Gemini", "Claude") para slugs do OpenRouter.
+1. **`backend/config.py`** — Adicionado dicionário `MODEL_OPTIONS` mapeando nomes amigáveis ("ChatGPT", "Gemini", "Claude", "Gemma") para slugs do OpenRouter.
 
-2. **`backend/models.py`** — Criada nova entidade `ChatSession` com campos `session_key`, `title`, `created_at`, `updated_at` e relacionamento `messages`. Adicionado campo `session_id` (FK) em `ChatMessage`. Removida duplicação do helper `_now`.
+2. **`backend/models.py`** — Criada entidade `ChatSession`. Adicionado campo `session_id` (FK) em `ChatMessage`.
 
-3. **`backend/schemas/chat.py`** — Adicionado campo opcional `session_key` em `ChatRequest`. Adicionados schemas `SessionOut` (com `message_count`) e `MessageOut` para serialização.
+3. **`backend/schemas/chat.py`** — Adicionado campo opcional `session_key` em `ChatRequest`. Schemas `SessionOut` e `MessageOut`.
 
-4. **`backend/routers/chat.py`** — Adicionados endpoints:
-   - `GET /api/sessions` — Lista todas as sessões ordenadas por `updated_at` descendente.
-   - `GET /api/sessions/{session_key}/messages` — Retorna mensagens de uma sessão.
-   - `DELETE /api/sessions/{session_key}` — Remove sessão e mensagens (cascade).
-   - `PATCH /api/sessions/{session_key}` — Atualiza título.
-   - `GET /api/models` — Retorna lista de modelos disponíveis.
-   - Modificados `POST /api/chat` e `POST /api/chat/stream` para aceitar `session_key` e resolver modelo via nome amigável. Auto-titulo baseado na primeira mensagem do usuário.
+4. **`backend/routers/chat.py`** — Endpoints de CRUD de sessões e rota `GET /api/models`.
 
-5. **`backend/main.py`** — Adicionada migração automática (ALTER TABLE) para coluna `session_id` em banco SQLite existente.
+5. **`backend/main.py`** — Migração automática (ALTER TABLE) para colunas `session_id` e `session_key`.
 
-### Frontend
+### Backend — Autenticação
 
-6. **`frontend/src/api.js`** — Adicionadas funções: `fetchSessions`, `fetchSessionMessages`, `deleteSession`, `updateSessionTitle`, `fetchModels`. `sendMessageStream` agora aceita `model`, `session_key` e callback `onDone`.
+6. **`backend/models.py`** — Novas entidades `User` (id, email, password_hash) e `AuthToken` (id, user_id, token) com hash via `pbkdf2_sha256`.
 
-7. **`frontend/src/App.jsx`** — Adicionados estados para `currentModel`, `models`, `sessions`, `currentSessionKey` e controle de dropdowns. Implementado:
-   - Dropdown de sessões no canto superior direito (criar nova, listar, selecionar, deletar).
-   - Dropdown de modelos no canto inferior direito (selecionar entre ChatGPT/Gemini/Claude).
-   - Carregamento automático da sessão mais recente ao iniciar.
-   - Histórico é enviado junto com `session_key` e `model` nas requisições.
-   - Auto-recarga da lista de sessões após cada envio.
+7. **`backend/schemas/chat.py`** — Novos schemas `AuthSignup`, `AuthLogin`, `AuthResponse`.
 
-8. **`frontend/index.html`** — Adicionados estilos CSS para: `.header-right`, `.composer-area`, `.model-selector`, `.dropdown-btn`, `.dropdown-menu`, `.dropdown-item`, `.session-item-content`, `.session-delete-btn`, etc.
+8. **`backend/routers/auth.py`** (novo) — Endpoints:
+   - `POST /api/auth/signup` — Cadastro com email (valida formato) + senha.
+   - `POST /api/auth/login` — Login, retorna token de sessão.
+   - `POST /api/auth/logout` — Invalida token.
+   - `GET /api/auth/me` — Verifica token e retorna dados do usuário.
+
+9. **`backend/main.py`** — Router de auth registrado.
+
+### Frontend — Autenticação
+
+10. **`frontend/src/api.js`** — Funções `authSignup`, `authLogin`, `authLogout`, `authMe`.
+
+11. **`frontend/src/AuthScreen.jsx`** (novo) — Tela de login/cadastro com alternância entre modos, validação de email e senha, armazenamento do token em `localStorage`.
+
+12. **`frontend/src/App.jsx`** — App verifica token salvo ao montar. Se não autenticado, renderiza `<AuthScreen>`. Se autenticado, mostra o chat com email do usuário no topo e opção de logout no dropdown de sessões.
+
+13. **`frontend/index.html`** — CSS da tela de autenticação e registro do script `AuthScreen.jsx`.
 
 ## Estratégia de Testes
-- Todos os 41 testes existentes passam (pytest).
-- Testes de modelo validam criação de `ChatSession` e relacionamento com `ChatMessage`.
-- Testes de schema validam o novo campo `session_key`.
-- Testes de endpoint validam que as rotas novas não quebram comportamento existente.
+- 41 testes existentes passam (pytest).
+- Senhas hasheadas com `pbkdf2_sha256` (bcrypt não necessário).
+- Tokens de 64 caracteres hex gerados com `secrets.token_hex(32)`.
 
 ## Riscos e Acompanhamento
-- [ ] Banco de dados SQLite existente precisa de migração; `main.py` tenta `ALTER TABLE` automaticamente, mas pode falhar se o banco estiver corrompido. Caso ocorra erro, deletar `database/chat.db` e reiniciar.
-- [ ] ChatMessages antigos com `session_key="default"` não serão associados a nenhuma `ChatSession`. Eles continuarão funcionando mas não aparecerão no dropdown de sessões. O usuário pode querer migrá-los manualmente ou ignorá-los.
-- [ ] O seletor de modelo usa nomes amigáveis (ChatGPT/Gemini/Claude). Se a chave da API OpenRouter não tiver acesso a todos os modelos, algumas opções podem falhar.
+- [ ] Banco SQLite existente pode precisar ser recriado se as migrações falharem.
+- [ ] Sessões de chat não estão vinculadas a usuários específicos (qualquer usuário vê todas as sessões). Melhoria futura.
+- [ ] Token armazenado em `localStorage` (não `httpOnly cookie`). Adequado para experimento local.
 
 ---
 **Nota**: Preenchido pelo agente.
