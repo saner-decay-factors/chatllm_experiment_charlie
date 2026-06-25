@@ -11,6 +11,8 @@ const WELCOME_MSG = {
 };
 
 function App() {
+  const [page, setPage] = useState("login"); // "login" | "register" | "chat"
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState([WELCOME_MSG]);
@@ -20,7 +22,6 @@ function App() {
   const messagesRef = useRef(null);
   const abortControllerRef = useRef(null);
   const justCreatedRef = useRef(false);
-
   const chatHistory = useMemo(
     () => messages.filter((msg) => msg.role === "user" || msg.role === "assistant"),
     [messages]
@@ -35,9 +36,19 @@ function App() {
     }
   }, []);
 
+  // Check stored token on mount
   useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
+    if (isAuthenticated()) {
+      setPage("chat");
+    }
+    setCheckingAuth(false);
+  }, []);
+
+  useEffect(() => {
+    if (page === "chat") {
+      fetchSessions();
+    }
+  }, [page, fetchSessions]);
 
   useEffect(() => {
     const el = messagesRef.current;
@@ -196,6 +207,47 @@ function App() {
     }
   };
 
+  const handleLogin = () => {
+    setPage("chat");
+  };
+
+  const handleRegister = () => {
+    // After successful registration, go to login so the user can sign in
+    setPage("login");
+  };
+
+  const handleLogout = async () => {
+    await logoutUser();
+    setPage("login");
+    setSessions([]);
+    setActiveSessionId(null);
+    setMessages([WELCOME_MSG]);
+    setText("");
+    setError("");
+  };
+
+  if (checkingAuth) {
+    return null; // brief loading — no flash
+  }
+
+  if (page === "login") {
+    return (
+      <LoginPage
+        onNavigateToRegister={() => setPage("register")}
+        onLogin={handleLogin}
+      />
+    );
+  }
+
+  if (page === "register") {
+    return (
+      <RegisterPage
+        onNavigateToLogin={() => setPage("login")}
+        onRegister={handleRegister}
+      />
+    );
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -224,6 +276,9 @@ function App() {
       <div className="main-area">
         <header className="app-header">
           <div className="brand">ChatLLM Lab</div>
+          <button className="logout-btn" onClick={handleLogout} title="Sair">
+            Sair
+          </button>
         </header>
 
         <section className="messages" aria-live="polite" ref={messagesRef}>

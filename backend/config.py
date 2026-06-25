@@ -14,5 +14,10 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL_DEFAULT = os.getenv("OPENROUTER_MODEL", "google/gemma-4-31b-it")
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+# ── JWT ──────────────────────────────────────────────────────────────────────
+SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+
 SQLITE_PATH = ROOT_DIR / "database" / "chat.db"
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{SQLITE_PATH}"

@@ -98,3 +98,75 @@ async function deleteSession(sessionId) {
   });
   if (!response.ok) throw new Error("Erro ao deletar sessao.");
 }
+
+/* ── Auth ── */
+
+const TOKEN_KEY = "chatllm_access_token";
+
+function getAuthHeaders() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
+
+function setAccessToken(token) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+function clearAccessToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+function getAccessToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+function isAuthenticated() {
+  return !!getAccessToken();
+}
+
+async function registerUser({ email, password }) {
+  const response = await fetch(`${API_BASE}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || "Erro ao criar conta.");
+  }
+  return data;
+}
+
+async function loginUser({ email, password }) {
+  const response = await fetch(`${API_BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || "Erro ao fazer login.");
+  }
+  setAccessToken(data.access_token);
+  return data;
+}
+
+async function logoutUser() {
+  try {
+    await fetch(`${API_BASE}/api/auth/logout`, {
+      method: "POST",
+      headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+    });
+  } finally {
+    clearAccessToken();
+  }
+}
+
+async function fetchCurrentUser() {
+  const response = await fetch(`${API_BASE}/api/auth/me`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error("Nao autenticado.");
+  return response.json();
+}
