@@ -64,7 +64,10 @@
         flex-shrink: 0;
         padding: 12px 24px;
         border-bottom: 1px solid var(--border);
-        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
       }
 
       .brand {
@@ -72,6 +75,13 @@
         font-size: 0.95rem;
         color: var(--text);
         letter-spacing: 0;
+      }
+
+      .header-right {
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
       }
 
       .messages {
@@ -164,9 +174,160 @@
         font-size: 0.875em;
       }
 
+      .composer-area {
+        flex-shrink: 0;
+        padding: 6px 16px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        position: relative;
+      }
+
+      .model-selector {
+        align-self: flex-end;
+        position: relative;
+      }
+
+      .model-menu {
+        right: 0;
+        left: auto;
+        min-width: 180px;
+      }
+
       .composer-wrap {
         flex-shrink: 0;
-        padding: 8px 16px 20px;
+        padding: 0 0 12px;
+      }
+
+      /* Dropdown shared styles */
+      .dropdown-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--user-bubble);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 10px;
+        font: inherit;
+        font-size: 0.85rem;
+        color: var(--text);
+        cursor: pointer;
+        transition: border-color 150ms ease, background 150ms ease;
+        white-space: nowrap;
+        max-width: 220px;
+      }
+
+      .dropdown-btn:hover {
+        border-color: var(--composer-border);
+        background: #eaeaea;
+      }
+
+      .dropdown-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 140px;
+      }
+
+      .dropdown-menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        z-index: 100;
+        min-width: 220px;
+        max-height: 320px;
+        overflow-y: auto;
+        background: var(--bg-page);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        padding: 4px 0;
+      }
+
+      .session-menu {
+        right: 0;
+        left: auto;
+        min-width: 250px;
+      }
+
+      .dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        font-size: 0.875rem;
+        color: var(--text);
+        cursor: pointer;
+        transition: background 120ms ease;
+      }
+
+      .dropdown-item:hover {
+        background: var(--user-bubble);
+      }
+
+      .dropdown-item.active {
+        background: #e8f0fe;
+        font-weight: 500;
+      }
+
+      .new-session-item {
+        gap: 6px;
+        font-weight: 500;
+        color: var(--accent);
+      }
+
+      .dropdown-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 4px 0;
+      }
+
+      .dropdown-empty {
+        padding: 12px;
+        color: var(--muted);
+        font-size: 0.84rem;
+        text-align: center;
+      }
+
+      .session-item-content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .session-item-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.85rem;
+      }
+
+      .session-item-meta {
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .session-delete-btn {
+        flex-shrink: 0;
+        background: none;
+        border: none;
+        padding: 4px;
+        color: var(--muted);
+        cursor: pointer;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        opacity: 0;
+        transition: opacity 120ms ease;
+      }
+
+      .session-item:hover .session-delete-btn {
+        opacity: 1;
+      }
+
+      .session-delete-btn:hover {
+        color: #c0392b;
+        background: #fee;
       }
 
       .note {

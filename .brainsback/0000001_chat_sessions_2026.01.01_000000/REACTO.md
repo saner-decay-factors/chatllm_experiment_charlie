@@ -5,25 +5,27 @@
 **Hard rule**: AI agents must not edit this file and must not draft paste-ready content for it.
 
 ## R — Repeat (The Problem)
-_State the problem in your own words. Confirm that you share the same mental model of the goal._
+Estou desenvolvendo um ChatLLM utilizando React + FastAPI + OpenRouter. Não está implementado a funcionalidade de sessões de chat, para que o usuário não seja forçado a deixar toda sua conversa em um único chat. Por isso, é necessário a criação de um novo botão dropdown que permite o usuário alternar entre conversas e modelos de LLM. As opções de conversas disponíveis no dropdown de conversa deve conter uma lista de todas as conversas já criadas. Dentre as opções disponíveis, é obrigatório as opções "ChatGPT", "Gemini", e "Claude".
 
 ## E — Examples
-_Provide concrete inputs and expected outputs that demonstrate the correctness. Base them on observable behavior._
 
-- **Happy Path Input**: ...
-  **Output**: ...
+- **Happy Path Input**: Escolhi um novo modelo
+  **Output**: Ao enviar a próxima mensagem, ele deverá gerar uma mensagem com o modeo escolhido
 
-- **Edge Case Input**: ...
-  **Output**: ...
+- **Edge Case Input**: Escolhi outro modelo, enviei uma mensagem, e depois escolhi iniciar nova conversa
+  **Output**: O sistema deverá iniciar a nova conversa já neste novo modelo e não considerar respostas anteriores
 
 ## A — Approach
-_Describe your high-level strategy conceptually. How did you design the solution?_
+Foi orientado ao agente a compreender primeiro as estruturas já desenvolvidas nessa aplicação para evitar código duplicados ou semântica divergente ao resto do repositório. Depois foram encontrados um banco de dados já existente (que foi atualizado para comportar session_ids), e foram modificadas as classes necessárias e criadas outras, tanto no backend quanto no frontend
 
 ## C — Code
-_Identify the most critical code changes, format as actual files, functions, or methods. Justify the intent of your design choices rather than just acknowledging the syntax changes._
+- Criação da classe ChatSession
+- Criação de um dicionário de opções de modelos
+- Criação das classes MessageOut SessionOut
+- Adição de diversas novas rotas para comportar a alternância entre sessões
 
 ## T — Tests
-_Explain how the solution was validated, pointing to the actual test files, functions, or methods. Document any manual or automated tests._
+- Foram apenas realizados testes unitários que já rodavam antes. Na forma que está implementado, as mudanças e novas features já são contempladas.
 
 ## O — Optimize
-_Address Big(O) complexity, note that sometimes it doesn't apply, trade-offs, constraints, and opportunities for future improvement._
+Não se aplica. Nenhuma nova operação relevante está sendo feita nas novas rotas e as existentes não foram modificadas "o bastante" para isso

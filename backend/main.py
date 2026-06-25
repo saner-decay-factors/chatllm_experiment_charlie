@@ -8,12 +8,23 @@ from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
 
 from backend.database import Base, engine
 from backend.routers.chat import router as chat_router
 
 
 Base.metadata.create_all(bind=engine)
+
+# Migration: ensure columns exist on chat_messages
+inspector = inspect(engine)
+msg_columns = {c["name"] for c in inspector.get_columns("chat_messages")}
+if "session_id" not in msg_columns:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE chat_messages ADD COLUMN session_id INTEGER REFERENCES chat_sessions(id)"))
+if "session_key" not in msg_columns:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE chat_messages ADD COLUMN session_key VARCHAR(120) DEFAULT 'default'"))
 
 app = FastAPI(title="ChatLLM Experiment API")
 
