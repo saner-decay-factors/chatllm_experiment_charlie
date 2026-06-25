@@ -9,6 +9,7 @@ from backend.services.openrouter import (
     _build_messages,
     _build_headers,
     generate_reply,
+    generate_title,
     stream_reply,
 )
 
@@ -170,6 +171,74 @@ class TestGenerateReply:
             with patch("httpx.AsyncClient", return_value=mock_client):
                 with pytest.raises(RuntimeError, match="nao retornou conteudo"):
                     await generate_reply(user_message="Teste", history=[])
+
+
+class TestGenerateTitle:
+    @pytest.mark.asyncio
+    async def test_raises_config_error_without_api_key(self):
+        """Deve lancar OpenRouterConfigError quando nao ha API key."""
+        with patch("backend.services.openrouter.OPENROUTER_API_KEY", ""):
+            with pytest.raises(OpenRouterConfigError, match="OPENROUTER_API_KEY"):
+                await generate_title(user_message="Teste")
+
+    @pytest.mark.asyncio
+    async def test_returns_title_success(self):
+        """Deve retornar o titulo gerado pelo LLM."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [
+                {"message": {"content": "Python Programming Tips"}}
+            ]
+        }
+
+        mock_client = MagicMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("backend.services.openrouter.OPENROUTER_API_KEY", "sk-test"):
+            with patch("httpx.AsyncClient", return_value=mock_client):
+                title = await generate_title(user_message="How do I sort a list in Python?")
+                assert title == "Python Programming Tips"
+
+    @pytest.mark.asyncio
+    async def test_raises_on_http_error(self):
+        """Deve lancar RuntimeError quando a API retorna erro."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+
+        mock_client = MagicMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("backend.services.openrouter.OPENROUTER_API_KEY", "sk-test"):
+            with patch("httpx.AsyncClient", return_value=mock_client):
+                with pytest.raises(RuntimeError, match="OpenRouter retornou erro"):
+                    await generate_title(user_message="Teste")
+
+    @pytest.mark.asyncio
+    async def test_raises_on_empty_reply(self):
+        """Deve lancar RuntimeError quando a resposta veio vazia."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [
+                {"message": {"content": ""}}
+            ]
+        }
+
+        mock_client = MagicMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("backend.services.openrouter.OPENROUTER_API_KEY", "sk-test"):
+            with patch("httpx.AsyncClient", return_value=mock_client):
+                with pytest.raises(RuntimeError, match="nao retornou conteudo"):
+                    await generate_title(user_message="Teste")
 
 
 class TestStreamReply:
