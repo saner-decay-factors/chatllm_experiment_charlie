@@ -1,6 +1,6 @@
 const { useState } = React;
 
-function Sidebar({ sessions, activeSessionId, onSelectSession, onCreateSession, onDeleteSession }) {
+function Sidebar({ sessions, activeSessionId, onSelectSession, onCreateSession, onDeleteSession, onLogout, userEmail }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -61,6 +61,17 @@ function Sidebar({ sessions, activeSessionId, onSelectSession, onCreateSession, 
               </div>
             ))}
           </nav>
+
+          <div className="sidebar-footer">
+            <div className="sidebar-user-email" title={userEmail}>{userEmail}</div>
+            <button className="sidebar-logout-btn" onClick={onLogout} title="Sair">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <polyline points="6,2 12,8 6,14" />
+                <line x1="2" y1="8" x2="12" y2="8" />
+              </svg>
+              <span>Sair</span>
+            </button>
+          </div>
         </>
       )}
     </aside>

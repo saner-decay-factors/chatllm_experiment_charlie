@@ -5,6 +5,8 @@ function createMessageId() {
 }
 
 function App() {
+  const [user, setUser] = useState(null); // { user_id, email, token } | null
+  const [authChecked, setAuthChecked] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -32,10 +34,31 @@ function App() {
     };
   }, []);
 
-  // Load sessions on mount
+  // Check for saved token on mount
   useEffect(() => {
+    if (authChecked) return;
+    (async () => {
+      const savedToken = localStorage.getItem("auth_token");
+      if (savedToken) {
+        setAuthToken(savedToken);
+        const me = await authGetMe();
+        if (me) {
+          setUser(me);
+        } else {
+          localStorage.removeItem("auth_token");
+          clearAuthToken();
+        }
+      }
+      setAuthChecked(true);
+    })();
+  }, [authChecked]);
+
+  // Load sessions when user is known
+  useEffect(() => {
+    if (!authChecked) return;
     if (initializedRef.current) return;
     initializedRef.current = true;
+
     (async () => {
       try {
         const list = await fetchSessions();
@@ -49,7 +72,6 @@ function App() {
             content: m.content,
           })));
         } else {
-          // No sessions exist, create one
           const created = await createSession();
           setSessions([created]);
           setActiveSessionId(created.id);
@@ -60,7 +82,7 @@ function App() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [authChecked, user]);
 
   const switchSession = useCallback(async (sessionId) => {
     if (sessionId === activeSessionId) return;
@@ -96,7 +118,6 @@ function App() {
       await deleteSession(sessionId);
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
       if (activeSessionId === sessionId) {
-        // Switch to the most recent remaining session, or create one
         const remaining = sessions.filter((s) => s.id !== sessionId);
         if (remaining.length > 0) {
           const next = remaining[0];
@@ -201,10 +222,53 @@ function App() {
     } finally {
       abortControllerRef.current = null;
       setBusy(false);
-      // Refresh sessions list to pickup auto-title
       refreshSessions();
     }
   };
+
+  const handleAuthenticated = (data) => {
+    localStorage.setItem("auth_token", data.token);
+    setAuthToken(data.token);
+    setUser({ user_id: data.user_id, email: data.email });
+    // Reset session state
+    initializedRef.current = false;
+    setLoading(true);
+    setSessions([]);
+    setActiveSessionId(null);
+    setMessages([]);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authLogout();
+    } catch {
+      // ignore
+    }
+    localStorage.removeItem("auth_token");
+    clearAuthToken();
+    setUser(null);
+    setSessions([]);
+    setActiveSessionId(null);
+    setMessages([]);
+    initializedRef.current = false;
+    setLoading(true);
+  };
+
+  // Not authenticated yet
+  if (!authChecked) {
+    return (
+      <main className="app-shell">
+        <header className="app-header">
+          <div className="brand">ChatLLM Lab</div>
+        </header>
+        <div className="loading-indicator">Carregando...</div>
+      </main>
+    );
+  }
+
+  if (user === null) {
+    return <AuthPage onAuthenticated={handleAuthenticated} />;
+  }
 
   if (loading) {
     return (
@@ -225,6 +289,8 @@ function App() {
         onSelectSession={switchSession}
         onCreateSession={handleCreateSession}
         onDeleteSession={handleDeleteSession}
+        onLogout={handleLogout}
+        userEmail={user.email}
       />
 
       <main className="app-shell">

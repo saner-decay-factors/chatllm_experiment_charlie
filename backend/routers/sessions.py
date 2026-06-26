@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import ChatMessage, ChatSession
+from backend.models import ChatMessage, ChatSession, User
+from backend.routers.auth import get_current_user
 
 router = APIRouter()
 
@@ -16,13 +18,26 @@ def _delete_session_messages(db: Session, session_id: str) -> None:
     db.commit()
 
 
+def _user_filter(user: Optional[User]) -> dict:
+    """Retorna filtro baseado em autenticacao do usuario."""
+    if user is not None:
+        return {"user_id": user.id}
+    return {}
+
+
 @router.get("/api/sessions")
-def list_sessions(db: Session = Depends(get_db)) -> list[dict]:
-    sessions = (
-        db.query(ChatSession)
-        .order_by(ChatSession.updated_at.desc())
-        .all()
-    )
+def list_sessions(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+) -> list[dict]:
+    query = db.query(ChatSession)
+
+    if current_user is not None:
+        query = query.filter(ChatSession.user_id == current_user.id)
+    else:
+        query = query.filter(ChatSession.user_id.is_(None))
+
+    sessions = query.order_by(ChatSession.updated_at.desc()).all()
     return [
         {
             "id": s.id,
@@ -35,7 +50,10 @@ def list_sessions(db: Session = Depends(get_db)) -> list[dict]:
 
 
 @router.post("/api/sessions")
-def create_session(db: Session = Depends(get_db)) -> dict:
+def create_session(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+) -> dict:
     import uuid
 
     session_id = str(uuid.uuid4())
@@ -43,6 +61,7 @@ def create_session(db: Session = Depends(get_db)) -> dict:
     session = ChatSession(
         id=session_id,
         title="",
+        user_id=current_user.id if current_user is not None else None,
         created_at=now,
         updated_at=now,
     )
@@ -58,8 +77,16 @@ def create_session(db: Session = Depends(get_db)) -> dict:
 
 
 @router.delete("/api/sessions/{session_id}")
-def delete_session(session_id: str, db: Session = Depends(get_db)) -> dict:
-    session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+def delete_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+) -> dict:
+    query = db.query(ChatSession).filter(ChatSession.id == session_id)
+    if current_user is not None:
+        query = query.filter(ChatSession.user_id == current_user.id)
+
+    session = query.first()
     if not session:
         raise HTTPException(status_code=404, detail="Sessao nao encontrada")
     _delete_session_messages(db, session_id)
@@ -69,8 +96,16 @@ def delete_session(session_id: str, db: Session = Depends(get_db)) -> dict:
 
 
 @router.get("/api/sessions/{session_id}/messages")
-def list_session_messages(session_id: str, db: Session = Depends(get_db)) -> list[dict]:
-    session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+def list_session_messages(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+) -> list[dict]:
+    query = db.query(ChatSession).filter(ChatSession.id == session_id)
+    if current_user is not None:
+        query = query.filter(ChatSession.user_id == current_user.id)
+
+    session = query.first()
     if not session:
         raise HTTPException(status_code=404, detail="Sessao nao encontrada")
     messages = (
@@ -92,8 +127,17 @@ def list_session_messages(session_id: str, db: Session = Depends(get_db)) -> lis
 
 
 @router.patch("/api/sessions/{session_id}/title")
-def update_session_title(session_id: str, payload: dict, db: Session = Depends(get_db)) -> dict:
-    session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+def update_session_title(
+    session_id: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+) -> dict:
+    query = db.query(ChatSession).filter(ChatSession.id == session_id)
+    if current_user is not None:
+        query = query.filter(ChatSession.user_id == current_user.id)
+
+    session = query.first()
     if not session:
         raise HTTPException(status_code=404, detail="Sessao nao encontrada")
     title = payload.get("title", "").strip()

@@ -404,6 +404,148 @@
         font-size: 0.95rem;
       }
 
+      /* ── Auth Page ── */
+      .auth-page {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .auth-card {
+        width: 100%;
+        max-width: 380px;
+        padding: 32px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      }
+
+      .auth-card h2 {
+        margin: 0 0 20px;
+        font-size: 1.3rem;
+        font-weight: 600;
+        text-align: center;
+      }
+
+      .auth-field {
+        margin-bottom: 16px;
+      }
+
+      .auth-field label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text);
+        margin-bottom: 4px;
+      }
+
+      .auth-field input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--composer-border);
+        border-radius: 8px;
+        font: inherit;
+        font-size: 0.95rem;
+        outline: none;
+        transition: border-color 150ms ease;
+        box-sizing: border-box;
+      }
+
+      .auth-field input:focus {
+        border-color: #b0b0b0;
+      }
+
+      .auth-error {
+        color: #c0392b;
+        font-size: 0.85rem;
+        margin-bottom: 12px;
+        text-align: center;
+      }
+
+      .auth-submit {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        font: inherit;
+        font-size: 0.95rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 120ms ease;
+      }
+
+      .auth-submit:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+
+      .auth-submit:disabled {
+        background: #d9d9d9;
+        cursor: not-allowed;
+      }
+
+      .auth-switch {
+        margin-top: 16px;
+        text-align: center;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .auth-link {
+        background: none;
+        border: none;
+        color: var(--accent);
+        font: inherit;
+        font-size: 0.85rem;
+        cursor: pointer;
+        text-decoration: underline;
+        padding: 0;
+      }
+
+      .auth-link:hover {
+        color: var(--accent-hover);
+      }
+
+      /* ── Sidebar Footer ── */
+      .sidebar-footer {
+        flex-shrink: 0;
+        border-top: 1px solid var(--border);
+        padding: 10px;
+      }
+
+      .sidebar-user-email {
+        font-size: 0.78rem;
+        color: var(--muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-bottom: 6px;
+        padding: 0 2px;
+      }
+
+      .sidebar-logout-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        padding: 6px 8px;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        font-size: 0.85rem;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: background 100ms ease;
+      }
+
+      .sidebar-logout-btn:hover {
+        background: var(--user-bubble);
+      }
+
       @media (max-width: 640px) {
         .sidebar { width: 200px; }
         .sidebar--collapsed { width: 40px; }
@@ -428,6 +570,7 @@
     ></script>
     <script type="text/babel" src="/frontend/src/api.js"></script>
     <script type="text/babel" src="/frontend/src/MessageContent.jsx"></script>
+    <script type="text/babel" src="/frontend/src/AuthPage.jsx"></script>
     <script type="text/babel" src="/frontend/src/Sidebar.jsx"></script>
     <script type="text/babel" src="/frontend/src/Composer.jsx"></script>
     <script type="text/babel" src="/frontend/src/App.jsx"></script>
